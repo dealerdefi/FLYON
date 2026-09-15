@@ -1,0 +1,44 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "flyon-tracker"
+version = "0.1.0"
+description = "A wallet tracker that keeps score of its own calls."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { file = "LICENSE" }
+authors = [{ name = "Dahka2321" }]
+keywords = ["evm", "onchain", "analytics", "wallets", "pnl", "brier", "robinhood-chain"]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Environment :: Console",
+  "Intended Audience :: End Users/Desktop",
+  "License :: OSI Approved :: MIT License",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Topic :: Office/Business :: Financial",
+]
+
+# No dependencies, and that is load-bearing rather than tidy. Keccak, ABI
+# decoding, JSON-RPC and the page builder are all here in full, so there is no
+# package three levels down that can change what a number on the board means.
+dependencies = []
+
+[project.optional-dependencies]
+dev = ["playwright>=1.40"]     # only to photograph the page for the README
+
+[project.urls]
+Homepage = "https://github.com/Dahka2321/FLYON"
+Source = "https://github.com/Dahka2321/FLYON"
+
+[project.scripts]
+flyon = "flyon.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+flyon = ["py.typed"]

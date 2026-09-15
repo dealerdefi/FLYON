@@ -1,0 +1,12 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.venv/
+venv/
+.DS_Store
+
+# a working folder written by `buzz demo` / `buzz index`
+buzz-data/
+*.tape.json

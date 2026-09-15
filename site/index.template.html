@@ -1,0 +1,246 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FLYON — what the wallets actually did</title>
+<style>
+  :root {
+    --bg:#040805; --panel:#08110a; --line:#16301a; --line2:#0f2212;
+    --text:#cfe6c2; --dim:#6f9a6a; --mute:#4a6b47;
+    --green:#7bea3c; --green-soft:#3f8f28; --red:#e0553c; --gold:#ffd24a;
+  }
+  * { box-sizing:border-box; margin:0; padding:0 }
+  body {
+    background:
+      radial-gradient(900px 420px at 50% -10%, #0c1a0d 0%, var(--bg) 70%),
+      repeating-linear-gradient(0deg, rgba(120,220,90,.022) 0 1px, transparent 1px 3px);
+    color:var(--text); font:14px/1.55 ui-monospace,"SFMono-Regular",Menlo,Consolas,monospace;
+    padding:0 0 60px;
+  }
+  a { color:var(--green); text-decoration:none }
+  a:hover { text-decoration:underline }
+  .wrap { max-width:1180px; margin:0 auto; padding:0 18px }
+
+  #demo-band {
+    display:none; background:var(--gold); color:#1a1200; font-weight:700;
+    text-align:center; padding:9px 14px; letter-spacing:.4px;
+  }
+  #demo-band.on { display:block }
+
+  header { padding:34px 0 20px; display:flex; align-items:center; gap:20px; flex-wrap:wrap }
+  header img { width:120px; image-rendering:pixelated; filter:drop-shadow(0 0 16px #4dbb2a55) }
+  h1 { font-size:34px; letter-spacing:7px; color:var(--green); font-weight:700 }
+  .tag { color:var(--dim); font-size:13px; margin-top:3px }
+  .pulse { margin-left:auto; text-align:right; color:var(--dim); font-size:12.5px; line-height:1.9 }
+  .pulse b { color:var(--text); font-weight:600 }
+
+  .grid { display:grid; gap:16px; grid-template-columns:1fr 1fr; margin-top:8px }
+  @media (max-width:900px){ .grid { grid-template-columns:1fr } header img { width:84px } h1{font-size:26px} }
+
+  .panel { background:var(--panel); border:1px solid var(--line); border-radius:8px; overflow:hidden }
+  .panel > h2 {
+    font-size:12px; letter-spacing:2.4px; text-transform:uppercase; color:var(--dim);
+    padding:12px 15px; border-bottom:1px solid var(--line2); font-weight:600;
+    display:flex; justify-content:space-between; align-items:center; gap:10px;
+  }
+  .panel > h2 span { letter-spacing:0; text-transform:none; color:var(--mute); font-weight:400 }
+  .body { padding:6px 0 10px }
+  .empty { padding:22px 16px; color:var(--mute) }
+
+  table { width:100%; border-collapse:collapse; font-size:13px }
+  td, th { padding:7px 15px; text-align:left; white-space:nowrap }
+  th { color:var(--mute); font-weight:500; font-size:11px; letter-spacing:1.2px; text-transform:uppercase }
+  tbody tr { border-top:1px solid #0c1c0e }
+  tbody tr:hover { background:#0b1a0d }
+  .num { text-align:right; font-variant-numeric:tabular-nums }
+  .addr { color:var(--text) }
+  .up { color:var(--green) } .down { color:var(--red) } .flat { color:var(--mute) }
+  .pill { font-size:10.5px; padding:2px 7px; border-radius:20px; border:1px solid var(--line);
+          color:var(--mute); letter-spacing:.4px }
+  .pill.warn { color:var(--gold); border-color:#4a3d10 }
+
+  .feed { max-height:430px; overflow:auto }
+  .feed .side { width:44px; font-weight:700 }
+  .bar { height:3px; border-radius:2px; background:var(--green-soft); display:block; margin-top:5px }
+
+  .stats { display:grid; grid-template-columns:repeat(4,1fr); gap:1px; background:var(--line2) }
+  .stat { background:var(--panel); padding:14px 15px }
+  .stat .k { color:var(--mute); font-size:10.5px; letter-spacing:1.4px; text-transform:uppercase }
+  .stat .v { font-size:22px; color:var(--text); margin-top:5px; font-variant-numeric:tabular-nums }
+  .stat .v.green { color:var(--green) } .stat .v.gold { color:var(--gold) }
+  @media (max-width:700px){ .stats { grid-template-columns:repeat(2,1fr) } }
+
+  .note { padding:12px 15px; color:var(--mute); font-size:12.5px; border-top:1px solid var(--line2) }
+  ul.caveats { list-style:none; padding:4px 0 }
+  ul.caveats li { padding:9px 15px; border-top:1px solid #0c1c0e; color:var(--dim); font-size:12.5px }
+  ul.caveats li:first-child { border-top:0 }
+
+  footer { margin-top:26px; color:var(--mute); font-size:12px; line-height:2 }
+  footer code { color:var(--dim); word-break:break-all }
+  .full { grid-column:1 / -1 }
+</style>
+</head>
+<body>
+
+<div id="demo-band">
+  DEMO DATA — this is an invented market on a chain that does not exist.
+  Nothing here is a real wallet, a real trade, or a real profit.
+</div>
+
+<div class="wrap">
+  <header>
+    <img src="fly.png" alt="">
+    <div>
+      <h1>FLYON</h1>
+      <div class="tag">what the wallets actually did — and how the record held up</div>
+    </div>
+    <div class="pulse" id="pulse"></div>
+  </header>
+
+  <div class="panel full"><div class="stats" id="stats"></div></div>
+
+  <div class="grid">
+    <section class="panel">
+      <h2>Top by realised profit <span id="board-quote"></span></h2>
+      <div class="body" id="board"></div>
+      <div class="note">
+        Closed trades only, first-in-first-out, in the pool's quote asset.
+        Every address links to the explorer — check any row against the chain.
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>Live feed <span id="feed-range"></span></h2>
+      <div class="body feed" id="feed"></div>
+    </section>
+
+    <section class="panel">
+      <h2>Calls, and what happened next <span id="score-line"></span></h2>
+      <div class="body" id="signals"></div>
+      <div class="note">
+        A call is recorded when a tracked wallet buys — a fact, not a forecast.
+        It settles from the first trade after the window, win or lose, and the
+        score above counts every one of them.
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>Set aside <span>held tokens this chain never saw bought</span></h2>
+      <div class="body" id="aside"></div>
+      <div class="note">
+        These wallets are not accused of anything. The chain simply cannot show
+        where the tokens came from, so the proceeds are not counted as profit
+        and the wallets are kept off the board.
+      </div>
+    </section>
+
+    <section class="panel full">
+      <h2>What this cannot know</h2>
+      <ul class="caveats" id="caveats"></ul>
+    </section>
+  </div>
+
+  <footer>
+    <div id="foot"></div>
+    <div>Ledger head <code id="head"></code></div>
+    <div>Not advice. Not a forecast. Read the code:
+      <a href="https://github.com/Dahka2321/FLYON">github.com/Dahka2321/FLYON</a></div>
+  </footer>
+</div>
+
+<script type="application/json" id="flyon-data">/*__DATA__*/</script>
+<script>
+// The data lives in an inert JSON block, so the page can carry a payload of any
+// shape without it ever being executable. An unfilled template parses to null
+// and renders "no data" rather than pretending.
+let DATA = null;
+try { DATA = JSON.parse(document.getElementById('flyon-data').textContent); } catch (e) { DATA = null; }
+
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+const short = a => a ? a.slice(0, 8) + '…' + a.slice(-4) : '—';
+const n = (v, d = 3) => v === null || v === undefined ? '—'
+  : Number(v).toLocaleString('en-US', {minimumFractionDigits: d, maximumFractionDigits: d});
+const pc = v => v === null || v === undefined ? '—' : (v * 100).toFixed(1) + '%';
+const sgn = v => v > 0 ? 'up' : v < 0 ? 'down' : 'flat';
+
+function boot(d) {
+  if (!d) { document.body.innerHTML = '<p style="padding:40px">no data</p>'; return; }
+  if (d.demo) $('demo-band').classList.add('on');
+
+  const s = d.summary, sc = d.signals.score;
+  $('pulse').innerHTML =
+    `<b>${d.network.name}</b> · chain ${d.network.chain_id}<br>` +
+    `blocks ${d.range.from.toLocaleString()} → ${d.range.to.toLocaleString()}<br>` +
+    `generated ${esc(d.generated_at)}`;
+
+  $('stats').innerHTML = [
+    ['trades read', s.trades.toLocaleString(), ''],
+    ['wallets', s.wallets.toLocaleString(), ''],
+    ['on the board', s.on_board.toLocaleString(), 'green'],
+    ['set aside', s.set_aside.toLocaleString(), s.set_aside ? 'gold' : ''],
+  ].map(([k, v, c]) => `<div class="stat"><div class="k">${k}</div><div class="v ${c}">${v}</div></div>`).join('');
+
+  $('board-quote').textContent = s.quote ? 'in ' + s.quote : '';
+  $('board').innerHTML = d.leaderboard.length ? `<table>
+    <thead><tr><th>#</th><th>wallet</th><th class="num">realised</th>
+    <th class="num">spent</th><th class="num">roi</th><th class="num">trades</th></tr></thead>
+    <tbody>${d.leaderboard.map(w => `<tr>
+      <td class="flat">${w.rank}</td>
+      <td><a class="addr" href="${w.url}" target="_blank" rel="noopener">${short(w.wallet)}</a></td>
+      <td class="num ${sgn(w.realised)}">${n(w.realised)}</td>
+      <td class="num flat">${n(w.spent, 2)}</td>
+      <td class="num ${sgn(w.roi)}">${pc(w.roi)}</td>
+      <td class="num flat">${w.trades}</td></tr>`).join('')}</tbody></table>`
+    : '<div class="empty">No wallet has closed a trade in this range yet.</div>';
+
+  $('feed-range').textContent = d.feed.length + ' most recent';
+  $('feed').innerHTML = d.feed.length ? `<table><tbody>${d.feed.map(t => `<tr>
+      <td class="side ${t.side === 'buy' ? 'up' : 'down'}">${t.side.toUpperCase()}</td>
+      <td>${esc(t.base_symbol)}
+        <span class="bar" style="width:${Math.min(100, Math.abs(t.quote_amount) * 22)}px;
+              background:${t.side === 'buy' ? 'var(--green-soft)' : 'var(--red)'}"></span></td>
+      <td class="num">${n(Math.abs(t.base_amount), 0)}</td>
+      <td class="num flat">${n(Math.abs(t.quote_amount), 4)} ${esc(t.quote_symbol)}</td>
+      <td>${t.wallet ? `<a href="${t.wallet_url}" target="_blank" rel="noopener">${short(t.wallet)}</a>`
+                     : '<span class="pill">unattributed</span>'}</td>
+      <td class="num"><a class="flat" href="${t.url}" target="_blank" rel="noopener">${t.block.toLocaleString()}</a></td>
+      ${t.priced ? '' : '<td><span class="pill warn">unpriced</span></td>'}
+    </tr>`).join('')}</tbody></table>` : '<div class="empty">No trades in this range.</div>';
+
+  $('score-line').textContent = sc.headline;
+  $('signals').innerHTML = d.signals.rows.length ? `<table>
+    <thead><tr><th>wallet</th><th>token</th><th class="num">said</th>
+    <th class="num">move</th><th>result</th></tr></thead>
+    <tbody>${d.signals.rows.map(r => `<tr>
+      <td><a class="addr" href="${r.wallet_url}" target="_blank" rel="noopener">${short(r.wallet)}</a></td>
+      <td>${esc(r.token)}</td>
+      <td class="num flat">${pc(r.confidence)}</td>
+      <td class="num ${r.change === null ? 'flat' : sgn(r.change)}">${r.change === null ? '—' : pc(r.change)}</td>
+      <td>${!r.settled ? '<span class="pill">open</span>'
+            : r.outcome ? '<span class="up">hit</span>' : '<span class="down">miss</span>'}</td>
+    </tr>`).join('')}</tbody></table>`
+    : '<div class="empty">No calls recorded yet. Nothing to score, and nothing claimed.</div>';
+
+  $('aside').innerHTML = d.set_aside.length ? `<table>
+    <thead><tr><th>wallet</th><th class="num">proceeds set aside</th><th class="num">counted profit</th></tr></thead>
+    <tbody>${d.set_aside.map(w => `<tr>
+      <td><a class="addr" href="${w.url}" target="_blank" rel="noopener">${short(w.wallet)}</a></td>
+      <td class="num" style="color:var(--gold)">${n(w.quarantined, 2)}</td>
+      <td class="num ${sgn(w.realised)}">${n(w.realised)}</td></tr>`).join('')}</tbody></table>`
+    : '<div class="empty">Every wallet here was seen buying what it sold.</div>';
+
+  $('caveats').innerHTML = d.caveats.map(c => `<li>${esc(c)}</li>`).join('');
+
+  $('foot').innerHTML = `${s.swaps_seen.toLocaleString()} swap logs read · ` +
+    `${s.unattributed} could not be attributed to a wallet · ` +
+    `${s.unreadable_pools} pools would not name their tokens · ` +
+    `${d.ledger.lines} ledger lines, ${d.ledger.ok ? 'chain unbroken' : 'CHAIN BROKEN'}`;
+  $('head').textContent = d.ledger.head;
+}
+
+boot(DATA);
+</script>
+</body>
+</html>

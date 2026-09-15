@@ -1,0 +1,35 @@
+name: tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        python: ["3.10", "3.11", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+
+      # FLYON has no dependencies, so there is nothing to install for the suite.
+      # No test opens a socket either — the chain is invented or replayed.
+      - name: tests
+        run: python -m unittest discover -s tests -t . -v
+
+      - name: the README agrees with the code
+        run: python scripts/figures.py --check
+
+      - name: it installs and runs end to end
+        run: |
+          pip install -e .
+          flyon --home "$RUNNER_TEMP/bz" demo --blocks 8000
+          FLYON_HOME="$RUNNER_TEMP/bz" flyon doctor --network demo
+          FLYON_HOME="$RUNNER_TEMP/bz" flyon board --limit 5
