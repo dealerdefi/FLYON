@@ -24,6 +24,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import shutil
 import sys
 from dataclasses import asdict
 from pathlib import Path
@@ -63,7 +64,19 @@ def die(msg: str, code: int = 1):
     raise SystemExit(code)
 
 
-FLY = (r"   __     ", r"  (oo)\__ ", r"  (__)\  )", r"      ||  ")
+def banner(args=None) -> None:
+    """
+    The mark, once, at the top.
+
+    Skipped when output is not a terminal, so a piped or redirected run stays
+    machine-readable, and when --no-banner says so.
+    """
+    if getattr(args, "no_banner", False) or not sys.stdout.isatty():
+        return
+    from .banner import render
+
+    width = min(shutil.get_terminal_size((80, 24)).columns, 100)
+    print("\n".join(render(width=width, colour=COLOR)))
 
 
 # ── the folder ───────────────────────────────────────────────────────────────
@@ -172,9 +185,8 @@ def cmd_demo(args) -> int:
     chain_demo = DemoChain(seed=args.seed, blocks=args.blocks)
     ch = Chain(call=chain_demo, expect_chain_id=net.chain_id)
 
+    banner(args)
     print()
-    for line in FLY:
-        print(p(line, "green"))
     print(p("  an invented market, read by the real indexer", "bright bold"))
     print(p(f"  seed {args.seed} · nothing here is a real chain", "mute"))
 
@@ -305,9 +317,8 @@ def cmd_doctor(args) -> int:
     net = chains.network(args.network)
     problems = 0
 
+    banner(args)
     print()
-    for line in FLY:
-        print(p(line, "green"))
     print(p(f"  flyon {VERSION}", "bright bold"))
     print(p(f"  {home.root}", "mute"))
 
@@ -372,6 +383,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     ap.add_argument("--home", help="where to keep things. Or $FLYON_HOME, or ./flyon-data")
     ap.add_argument("--version", action="version", version=f"flyon {VERSION}")
+    ap.add_argument("--no-banner", action="store_true", help="skip the mark")
     sub = ap.add_subparsers(dest="cmd")
 
     def common(sp):
@@ -428,6 +440,8 @@ def main(argv: list[str] | None = None) -> int:
     ap = build_parser()
     args = ap.parse_args(sys.argv[1:] if argv is None else argv)
     if not getattr(args, "cmd", None):
+        banner(args)
+        print()
         ap.print_help()
         return 0
     try:

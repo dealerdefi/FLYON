@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="assets/fly.png" alt="FLYON" width="300">
+<img src="assets/banner.png" alt="FLYON" width="960">
 
 # FLYON
 
@@ -25,6 +25,18 @@ pip install -e .
 flyon demo          # invent a market, read it with the real indexer, build the page
 open flyon-data/site/index.html
 ```
+
+<div align="center">
+<img src="assets/terminal-doctor.png" alt="flyon doctor in a terminal" width="720">
+</div>
+
+<div align="center">
+<sub>The mark is drawn from a pixel alphabet in <code>src/flyon/banner.py</code>,
+not from a font — so it lands the same in every shell. <code>--no-banner</code>
+turns it off, and a pipe does too.</sub>
+</div>
+
+### And the page it builds
 
 <div align="center">
 <img src="assets/site.png" alt="the FLYON page" width="980">
@@ -148,17 +160,16 @@ flyon site                     rebuild the page from what is stored
 flyon doctor                   endpoint, chain id, quote assets, ledger
 ```
 
-```
-$ flyon board --limit 5
+<div align="center">
+<img src="assets/terminal-board.png" alt="flyon board" width="820">
+<br>
+<img src="assets/terminal-score.png" alt="flyon score" width="820">
+</div>
 
-  #   wallet                                       realised    spent     roi  trades
-  1   0xa0c03af25caa11ed866ada02c419f86f039bf9d9     +4.350    86.13   +5.1%      84
-  2   0xa0ebc3a1cc2b70f3bdc69dd10d76bef3615af1ad     +2.942   100.80   +2.9%      88
-  …
-
-  1 wallets left off: they sold tokens this chain never saw them buy.
-  223.94 of proceeds set aside. flyon board --all to see them.
-```
+<div align="center">
+<sub>Real captures, taken by <code>scripts/terminal.py</code> — it opens a pseudo
+terminal, runs the command inside it and photographs what comes back.</sub>
+</div>
 
 Everything lands in one folder — `./flyon-data`, or `$FLYON_HOME`:
 
@@ -255,6 +266,37 @@ printed in the page footer so it can be pinned somewhere you do not control.
 
 ---
 
+## The shape it is heading for
+
+Two design studies for the live page — the wallets drawn as a swarm, buys
+lighting up as they land, the board and the log around the edge.
+
+<div align="center">
+<img src="assets/swarm.gif" alt="a design study of the live board" width="880">
+<br><br>
+<img src="assets/gridmap.gif" alt="a design study of the wallet map" width="880">
+</div>
+
+<div align="center">
+<sub>Concept art, not screenshots. Full-quality versions live beside them as
+<code>assets/swarm.mp4</code> and <code>assets/gridmap.mp4</code>.</sub>
+</div>
+
+**Read them as a direction, not as a feature list.** Two things in those frames
+are not what FLYON does, and one of them it will not do:
+
+- **the nicknames.** FLYON ranks addresses and does not attach names to them.
+  Putting a person's handle next to a wallet on a public page is a different
+  product with different consequences.
+- **the dollar figures.** Profit here is measured in the pool's quote asset,
+  on purpose — a dollar number needs a price feed, and a price feed is a number
+  nobody reading the page can re-derive. See [docs/PNL.md](docs/PNL.md).
+
+The swarm itself, the live feed and the board are all fed by things the indexer
+already computes today.
+
+---
+
 ## What this cannot know
 
 - **Wash trading.** Two wallets bouncing a token between themselves can post any
@@ -276,7 +318,7 @@ None of this is financial advice.
 ## Tests
 
 ```bash
-python -m unittest discover -s tests -t .    # 104 tests, no network, ~5 seconds
+python -m unittest discover -s tests -t .    # 114 tests, no network, ~5 seconds
 python scripts/figures.py --check            # the README agrees with the code
 ```
 
