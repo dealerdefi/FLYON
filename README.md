@@ -7,7 +7,7 @@
 **A wallet tracker that keeps score of its own calls.**
 
 Every tracker shows you what the clever money just bought.
-This one also shows you how often it was wrong — because the code that makes
+This one also shows you how often it was wrong - because the code that makes
 the call is the code that settles it, and there is no path through it that
 prints a hit rate without printing the misses.
 
