@@ -393,3 +393,13 @@ MIT · built for the fun of it
 <sub>What the wallets actually did — and how the record held up.</sub>
 
 </div>
+
+---
+
+## Token
+
+This repo is the tracker. It does not mint or use a token.
+A same-name token on Robinhood Chain, if any, is separate: no rights,
+no utility, no share of fees. Fees go to the launch wallet.
+Not an investment. NFA. You can lose everything.
+Not affiliated with Robinhood Markets, Inc.
