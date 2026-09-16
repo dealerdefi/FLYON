@@ -9,7 +9,7 @@ description = "A wallet tracker that keeps score of its own calls."
 readme = "README.md"
 requires-python = ">=3.10"
 license = { file = "LICENSE" }
-authors = [{ name = "Dahka2321" }]
+authors = [{ name = "dealerdefi" }]
 keywords = ["evm", "onchain", "analytics", "wallets", "pnl", "brier", "robinhood-chain"]
 classifiers = [
   "Development Status :: 4 - Beta",
@@ -31,8 +31,8 @@ dependencies = []
 dev = ["playwright>=1.40"]     # only to photograph the page for the README
 
 [project.urls]
-Homepage = "https://github.com/Dahka2321/FLYON"
-Source = "https://github.com/Dahka2321/FLYON"
+Homepage = "https://github.com/dealerdefi/FLYON"
+Source = "https://github.com/dealerdefi/FLYON"
 
 [project.scripts]
 flyon = "flyon.cli:main"

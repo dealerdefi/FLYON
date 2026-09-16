@@ -41,7 +41,7 @@ prints a hit rate without printing the misses.
 ## Thirty seconds
 
 ```bash
-git clone https://github.com/Dahka2321/FLYON && cd FLYON
+git clone https://github.com/dealerdefi/FLYON && cd FLYON
 pip install -e .
 
 flyon demo          # invent a market, read it with the real indexer, build the page

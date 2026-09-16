@@ -81,7 +81,7 @@ class Http:
                 req = urllib.request.Request(
                     self.url, data=body.encode(),
                     headers={"content-type": "application/json",
-                             "user-agent": "flyon/0.1 (+https://github.com/Dahka2321/FLYON)"},
+                             "user-agent": "flyon/0.1 (+https://github.com/dealerdefi/FLYON)"},
                     method="POST",
                 )
                 with urllib.request.urlopen(req, timeout=TIMEOUT) as r:
