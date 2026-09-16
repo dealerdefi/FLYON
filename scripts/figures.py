@@ -62,6 +62,8 @@ def figures() -> dict[str, str]:
         "settled": str(len(score.settled)),
         "open": str(len(score.open)),
         "hit_rate": f"{score.hit_rate * 100:.0f}%",
+        "hit_exact": f"{score.hit_rate * 100:.1f}%",
+        "said_exact": f"{score.said * 100:.1f}%",
         "said": f"{score.said * 100:.0f}%",
         "gap": f"{score.gap * 100:+.0f}",
         "brier": f"{score.brier:.3f}",
@@ -79,6 +81,9 @@ def expectations(f: dict[str, str]) -> dict[str, str]:
         "the hit rate": f"hit {f['hit_rate']}",
         "the brier score": f"brier {f['brier']}",
         "the median move": f"median {f['median']}",
+        "the scoreboard block's hit rate": f"hit rate   {f['hit_exact']}",
+        "the scoreboard block's said": f"said       {f['said_exact']}",
+        "the scoreboard block's brier": f"brier     {f['brier']}",
     }
 
 

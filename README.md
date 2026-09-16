@@ -6,13 +6,35 @@
 
 **A wallet tracker that keeps score of its own calls.**
 
-Reads swap logs off an EVM chain. Works out who actually made money.
-Records every call the moment it is made — then publishes what happened next,
-including the misses.
+Every tracker shows you what the clever money just bought.
+This one also shows you how often it was wrong — because the code that makes
+the call is the code that settles it, and there is no path through it that
+prints a hit rate without printing the misses.
 
-`python 3.10+` · `zero dependencies` · `read-only` · `MIT`
+`python 3.10+` · `zero dependencies` · `six rpc methods, all reads` · `MIT`
 
 </div>
+
+```
+┌─ WHAT IT ACTUALLY DOES ──────────────────────────────────────────────────┐
+│                                                                          │
+│   reads     swap logs off an EVM chain. Nothing else. No API, no index,  │
+│             no account, and no way to sign anything                      │
+│                                                                          │
+│   ranks     realised profit — first-in-first-out, in the pool's quote    │
+│             asset, closed trades only, never in dollars                  │
+│                                                                          │
+│   refuses   to rank a wallet holding tokens the chain never saw it buy.  │
+│             That money is set aside and shown, not counted               │
+│                                                                          │
+│   records   every call at the block it was seen, hash-chained, before    │
+│             anybody knows how it went                                    │
+│                                                                          │
+│   settles   it later from the same chain, first price after the window,  │
+│             win or lose, and publishes the score                         │
+│                                                                          │
+└──────────────────────────────────────────────────────────────────────────┘
+```
 
 ---
 
@@ -52,27 +74,39 @@ from the data side.</sub>
 
 ## Why this one is different
 
-Every wallet tracker shows you what somebody just bought. Green for a buy, red
-for a sell, a leaderboard of enormous profits, and a feeling that you are
-finally seeing what the clever money does.
+Green for a buy, red for a sell, a leaderboard of enormous profits, and a
+feeling that you are finally seeing what the clever money does. Every tracker
+on the internet gives you that.
 
 Almost none of them will tell you **how their own calls have actually done**,
 because the honest answer is usually unflattering and nobody is obliged to
 publish it.
 
-FLYON is obliged, by construction. A call is written into an append-only,
-hash-chained ledger at the block it was seen. The same code settles it later
-from the same chain. There is no path through this repository that produces a
-hit rate without also producing the misses.
+FLYON is obliged, by construction. Here is its verdict on itself, on the demo
+market that ships with it:
 
-On the demo market that ships with it, the code's own verdict on itself is:
+```
+    settled   500          hit rate   45.6%  ████████████░░░░░░░░░░░░░░
+     open     112          said       51.8%  ██████████████░░░░░░░░░░░░
+
+     gap      +6 pts       flattering itself
+     brier     0.266       0 perfect · 0.25 a coin · 1 certain and wrong
+     median   -1.3%        price move over the window
+```
+
+The same thing, in the one line the web page is not allowed to render without:
 
 ```
 500 settled  ·  hit 46%  ·  brier 0.266  ·  median -1.3%  ·  112 still open
 ```
 
-Under a coin. Published anyway, on the front of the page, because a scoreboard
-you can quietly leave out is not a scoreboard.
+Under a coin. On the front page, in the terminal, and in the data file — because
+a scoreboard you are free to leave out is not a scoreboard.
+
+The trick is not honesty as a policy. It is that the confidence on every call is
+written into an append-only ledger **before** the outcome exists, and the
+settlement is a separate line that cannot replace it. There is nowhere to put a
+thumb.
 
 ---
 
@@ -161,15 +195,23 @@ flyon doctor                   endpoint, chain id, quote assets, ledger
 ```
 
 <div align="center">
-<img src="assets/terminal-board.png" alt="flyon board" width="820">
-<br>
-<img src="assets/terminal-score.png" alt="flyon score" width="820">
+<img src="assets/terminal-board.png" alt="flyon board" width="860">
+<br><br>
+<img src="assets/terminal-feed.png" alt="flyon feed" width="860">
+<br><br>
+<img src="assets/terminal-score.png" alt="flyon score" width="860">
 </div>
 
 <div align="center">
 <sub>Real captures, taken by <code>scripts/terminal.py</code> — it opens a pseudo
 terminal, runs the command inside it and photographs what comes back.</sub>
 </div>
+
+That last table is the one most tools would rather not print. It groups every
+settled call by the confidence it carried and shows what that group actually
+did, so you can see whether the number meant anything — or whether every bucket
+lands in the same place, which would say the confidence was decoration. Either
+answer gets printed.
 
 Everything lands in one folder — `./flyon-data`, or `$FLYON_HOME`:
 
@@ -318,7 +360,7 @@ None of this is financial advice.
 ## Tests
 
 ```bash
-python -m unittest discover -s tests -t .    # 114 tests, no network, ~5 seconds
+python -m unittest discover -s tests -t .    # 121 tests, no network, ~5 seconds
 python scripts/figures.py --check            # the README agrees with the code
 ```
 

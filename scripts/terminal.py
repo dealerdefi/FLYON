@@ -31,13 +31,14 @@ import time
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-COLS, LINES = 96, 58
+COLS, LINES = 100, 62
 
 #: (filename, argv, what it shows)
 SHOTS = [
     ("terminal-doctor", ["doctor", "--network", "demo"], "the mark, and what it can reach"),
-    ("terminal-board", ["board", "--limit", "8"], "top by realised profit"),
+    ("terminal-board", ["board", "--limit", "12"], "top by realised profit"),
     ("terminal-score", ["score", "--window", "7200"], "how the calls actually did"),
+    ("terminal-feed", ["feed", "--limit", "14"], "the last trades"),
 ]
 
 DEFAULT_FG = "b9c9ae"

@@ -224,6 +224,31 @@ class Score:
         mid = len(moves) // 2
         return moves[mid] if len(moves) % 2 else (moves[mid - 1] + moves[mid]) / 2
 
+    def buckets(self, edges: tuple[float, ...] = (0.4, 0.5, 0.6, 0.7, 1.01)) -> list[dict]:
+        """
+        Settled calls grouped by the confidence they carried, with what each
+        group actually did.
+
+        This is the reliability table behind the Brier score, and it is the one
+        view that says whether a confidence number means anything at all. If the
+        calls made at 70% come in around 70%, the number is doing work. If every
+        bucket lands at the same place, the confidence is decoration — and this
+        table shows that just as plainly, which is the point of printing it.
+        """
+        settled = self.settled
+        out: list[dict] = []
+        low = 0.0
+        for hi in edges:
+            group = [s for s in settled if low <= s.confidence < hi]
+            if group:
+                out.append({
+                    "low": low, "high": min(hi, 1.0), "n": len(group),
+                    "said": sum(s.confidence for s in group) / len(group),
+                    "hit": sum(1 for s in group if s.outcome) / len(group),
+                })
+            low = hi
+        return out
+
     def headline(self) -> str:
         """The line the site is not allowed to render without."""
         if not self.settled:

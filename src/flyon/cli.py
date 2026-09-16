@@ -30,6 +30,7 @@ from dataclasses import asdict
 from pathlib import Path
 
 from . import chains
+from . import ui
 from .index import Scan, Trade, scan
 from .ledger import Ledger, verify
 from .pnl import build as build_pnl, leaderboard
@@ -250,24 +251,66 @@ def cmd_board(args) -> int:
     trades, meta = home.load()
     wallets = build_pnl(trades)
     rows = leaderboard(wallets, limit=args.limit, include_unknown_basis=args.all)
+    W = ui.width()
 
-    head(f"top {len(rows)} by realised profit" + ("  (unaccounted wallets included)" if args.all else ""))
+    quote = next((pos.quote for w in rows for pos in w.positions), "")
+    note = f"{len(rows)} of {len(wallets)} wallets" + (" · unaccounted included" if args.all else "")
+    for line in ui.head("top by realised profit", note, W):
+        print(line)
+
     if not rows:
-        print(p("  nothing has closed a trade yet.", "mute"))
+        print(ui.c("  nothing has closed a trade yet.", "mute"))
         return 0
-    print(p(f"  {'#':<3} {'wallet':<44} {'realised':>12} {'spent':>10} {'roi':>8} {'trades':>7}", "mute"))
+
+    scale = max(abs(w.realised) for w in rows) or 1.0
+
+    # The address is printed in full and never truncated — a shortened one is
+    # not something anybody can paste into an explorer. Everything else gives
+    # way to it, and the flag sits beside it so it is never the part that is cut.
+    addr_w = 42
+    rest = ui.flex(ui.inner(W), [3, addr_w, 2, 11, 8], gap=1, floor=12)
+    barw = max(6, int(rest * 0.55))
+    recw = max(5, rest - barw - 1)
+    spec = [(3, ">"), (addr_w, "<"), (2, "<"), (11, ">"), (barw, "<"),
+            (8, ">"), (recw, "<")]
+
+    body = [ui.columns([[
+        ui.c("#", "mute"), ui.c("wallet", "mute"), "", ui.c("realised", "mute"),
+        ui.c(f"±{scale:.2f} {quote}"[: barw], "line"), ui.c("roi", "mute"),
+        ui.c("record", "mute"),
+    ]], spec, gap=1)[0], ""]
+
     for i, w in enumerate(rows, 1):
-        flag = p(" ⚑", "gold") if w.unknown_basis else ""
-        roi = "—" if w.roi is None else f"{w.roi * 100:+.1f}%"
-        print(f"  {i:<3} {w.address:<44} "
-              f"{p(f'{w.realised:+12.3f}', 'green' if w.realised > 0 else 'red')} "
-              f"{w.spent:10.2f} {roi:>8} {w.trades:7d}{flag}")
+        # A token counts once it has been sold into, whether or not the bag is
+        # empty — realised profit is realised whether the position is closed or
+        # merely trimmed. Positions never sold have no verdict and are left out.
+        won = [pos.realised > 0 for pos in sorted(w.positions, key=lambda x: x.last_block)
+               if pos.sells]
+        body.extend(ui.columns([[
+            ui.c(f"{i}", "lime" if i <= 3 else "mute"),
+            ui.c(w.address, "bright" if i <= 3 else ""),
+            ui.c("⚑", "gold") if w.unknown_basis else "",
+            ui.c(f"{w.realised:+.3f}", "green" if w.realised > 0 else "rose"),
+            ui.diverging(w.realised, scale, barw),
+            ui.c("—" if w.roi is None else f"{w.roi * 100:+.1f}%",
+                 "green" if (w.roi or 0) > 0 else "rose"),
+            ui.strip(won, cap=recw),
+        ]], spec, gap=1))
+
+    for line in ui.frame(body, W,
+                         foot="▲ a token sold into profit   ▾ sold at a loss   ⚑ tokens nobody saw bought"):
+        print(line)
 
     aside = [w for w in wallets.values() if w.unknown_basis]
     if aside and not args.all:
+        held = sum(w.quarantined for w in aside)
         print()
-        print(p(f"  {len(aside)} wallets left off: they sold tokens this chain never saw them buy.", "gold"))
-        print(p(f"  {sum(w.quarantined for w in aside):,.2f} of proceeds set aside. flyon board --all to see them.", "mute"))
+        print("  " + ui.c("⚑", "gold") + ui.c(
+            f"  {len(aside)} wallet{'s' if len(aside) > 1 else ''} left off — "
+            f"sold tokens this chain never saw them buy", "gold"))
+        print("  " + ui.c(f"   {held:,.2f} {quote} of proceeds set aside, "
+                          f"not counted as anyone's profit", "mute"))
+        print("  " + ui.c("   flyon board --all shows them, flagged", "dim"))
     return 0
 
 
@@ -275,13 +318,36 @@ def cmd_feed(args) -> int:
     home = Home(args.home)
     trades, _meta = home.load()
     rows = sorted(trades, key=lambda t: (t.block, t.index), reverse=True)[: args.limit]
-    head(f"last {len(rows)} trades")
+    W = ui.width()
+
+    buys = sum(1 for t in rows if t.side == "buy")
+    for line in ui.head("the last trades", f"{buys} bought · {len(rows) - buys} sold", W):
+        print(line)
+    if not rows:
+        print(ui.c("  nothing in range.", "mute"))
+        return 0
+
+    scale = max(abs(t.quote_amount) for t in rows) or 1.0
+    barw = min(20, ui.flex(ui.inner(W), [11, 5, 14, 10, 12, 20], gap=2, floor=8))
+    spec = [(11, ">"), (5, "<"), (barw, "<"), (14, ">"), (10, "<"), (12, ">"), (20, "<")]
+
+    body = []
     for t in rows:
-        mark = p("BUY ", "green") if t.side == "buy" else p("SELL", "red")
-        who = t.wallet[:16] + "…" if t.wallet else p("unattributed", "mute")
-        flag = "" if t.priced else p("  unpriced", "gold")
-        print(f"  {t.block:>10,}  {mark}  {abs(t.base_amount):>14,.0f} {t.base_symbol:<9}"
-              f" {abs(t.quote_amount):>10,.4f} {t.quote_symbol:<7} {who}{flag}")
+        ink = "green" if t.side == "buy" else "rose"
+        body.extend(ui.columns([[
+            ui.c(f"{t.block:,}", "dim"),
+            ui.c(t.side.upper(), ink, bold=True),
+            ui.bar(abs(t.quote_amount), scale, barw, ink),
+            ui.c(f"{abs(t.base_amount):,.0f}", "bright"),
+            ui.c(t.base_symbol[:10], "mute"),
+            ui.c(f"{abs(t.quote_amount):,.4f}", ""),
+            ui.c(t.quote_symbol[:6], "mute") + "  " + (
+                ui.c(t.wallet[:10] + "…", "dim") if t.wallet
+                else ui.c("unattributed", "amber")),
+        ]], spec))
+
+    for line in ui.frame(body, W, foot=f"bar to {scale:,.2f} of quote moved"):
+        print(line)
     return 0
 
 
@@ -293,22 +359,81 @@ def cmd_score(args) -> int:
     signals = emit(trades, watched, window=args.window)
     settle_all(signals, [t for t in trades if t.priced and t.wallet], window=args.window)
     score = Score(signals=signals)
+    W = ui.width()
 
-    head("the record")
     r = score.row()
+    for line in ui.head("the record", f"window {args.window:,} blocks", W):
+        print(line)
+
     if not score.settled:
-        print(p("  no call has settled yet — nothing to claim, and nothing claimed.", "mute"))
-        print(f"  {len(score.open)} open")
+        for line in ui.frame([
+            ui.c("no call has settled yet.", "bright"),
+            "",
+            ui.c("nothing is claimed, so there is nothing to show. "
+                 f"{len(score.open)} open.", "mute"),
+        ], W):
+            print(line)
         return 0
-    hit, said, gap = r["hit_rate"], r["said"], r["gap"]
-    verdict = "flattering itself" if gap > 0 else "harder on itself than it needs to be"
-    print(f"  settled    {r['settled']}   open {r['open']}")
-    print("  hit rate   " + p(f"{hit * 100:.0f}%", "bright"))
-    print(f"  said       {said * 100:.0f}%      the wallets' own prior hit rate")
-    print("  gap        " + p(f"{gap * 100:+.0f} pts", "gold" if abs(gap) > 0.05 else "green")
-          + f"   {verdict}")
-    print(f"  brier      {r['brier']:.3f}    " + p("0 perfect · 0.25 a coin · 1 certain and wrong", "mute"))
-    print(f"  median     {r['median_change'] * 100:+.1f}%   price move over the window")
+
+    # Formatted from the score itself, never from row()'s rounded copy: a
+    # number rounded to four places and then printed to three comes out one
+    # digit away from the same number printed straight, and then the terminal
+    # and the README quietly disagree about what the code said.
+    hit, said, gap, brier = score.hit_rate, score.said, score.gap, score.brier
+    median = score.median_change
+    barw = max(12, min(30, ui.inner(W) - 62))
+
+    body = [
+        ui.kv("settled", ui.c(f"{r['settled']}", "bright", bold=True),
+              f"{r['open']} still open", 11),
+        "",
+        ui.kv("hit rate", ui.c(f"{hit * 100:5.1f}%", "bright", bold=True)
+              + "  " + ui.bar(hit, 1.0, barw, "green"),
+              "of settled calls the price was higher", 11),
+        ui.kv("said", ui.c(f"{said * 100:5.1f}%", "") + "  "
+              + ui.bar(said, 1.0, barw, "deep"),
+              "the wallets' own record going in", 11),
+        "",
+        ui.kv("gap", ui.c(f"{gap * 100:+5.0f} pts", "gold" if abs(gap) > 0.05 else "green",
+                          bold=True),
+              "flattering itself" if gap > 0 else "harder on itself than it needs to be", 11),
+        ui.kv("brier", ui.c(f"{brier:.3f}", "bright")
+              + "     " + ui.bar(min(brier, 0.5), 0.5, barw, "amber"),
+              "0 perfect · 0.25 a coin · 1 certain and wrong", 11),
+        ui.kv("median", ui.c(f"{median * 100:+.1f}%",
+                             "green" if median > 0 else "rose"),
+              "price move over the window", 11),
+    ]
+    for line in ui.frame(body, W, title=ui.c("scoreboard", "bright", bold=True)):
+        print(line)
+
+    rows = score.buckets()
+    if rows:
+        for line in ui.head("does the confidence mean anything",
+                            "settled calls, grouped by what they said", W):
+            print(line)
+        errw = 7
+        barw2 = ui.flex(ui.inner(W), [13, 7, 8, 8, errw], gap=2, floor=10)
+        spec = [(13, "<"), (7, ">"), (8, ">"), (8, ">"), (barw2, "<"), (errw, ">")]
+        table = [ui.columns([[ui.c(x, "mute") for x in
+                              ("confidence", "calls", "said", "hit", "", "error")]], spec)[0], ""]
+        for b in rows:
+            err = b["hit"] - b["said"]
+            table.extend(ui.columns([[
+                ui.c(f"{b['low'] * 100:.0f}–{min(b['high'], 1.0) * 100:.0f}%", "dim"),
+                ui.c(f"{b['n']}", ""),
+                ui.c(f"{b['said'] * 100:.0f}%", "mute"),
+                ui.c(f"{b['hit'] * 100:.0f}%", "bright"),
+                ui.diverging(err, 0.5, spec[4][0]),
+                ui.c(f"{err * 100:+.0f}", "green" if abs(err) < 0.1 else "rose"),
+            ]], spec))
+        for line in ui.frame(table, W,
+                             foot="bar right of centre: did better than it said"):
+            print(line)
+
+    last = [s.outcome for s in sorted(score.settled, key=lambda s: s.exit_block or 0)]
+    print()
+    print("  " + ui.c("most recent", "mute") + "  " + ui.strip([bool(x) for x in last], cap=48))
     return 0
 
 
@@ -316,58 +441,81 @@ def cmd_doctor(args) -> int:
     home = Home(args.home)
     net = chains.network(args.network)
     problems = 0
+    W = ui.width()
 
     banner(args)
     print()
-    print(p(f"  flyon {VERSION}", "bright bold"))
-    print(p(f"  {home.root}", "mute"))
+    print("  " + ui.c(f"flyon {VERSION}", "bright", bold=True) + "   "
+          + ui.c(str(home.root), "mute"))
 
-    head("endpoint")
+    rows: list[str] = []
+
+    def ok(text: str, note: str = "") -> None:
+        rows.append(ui.c("✓", "green") + "  " + ui.pad(text, 46)
+                    + ui.c(note, "mute"))
+
+    def warn(text: str, note: str = "") -> None:
+        rows.append(ui.c("!", "gold") + "  " + ui.pad(text, 46) + ui.c(note, "mute"))
+
+    def bad(text: str, note: str = "") -> None:
+        rows.append(ui.c("✗", "rose") + "  " + ui.pad(text, 46) + ui.c(note, "mute"))
+
+    def note(text: str) -> None:
+        rows.append(ui.c("·", "dim") + "  " + ui.c(text, "mute"))
+
+    # ── endpoint ──
+    rows.append(ui.c("ENDPOINT", "bright", bold=True))
     if not net.rpc:
-        print(f"  {p('·', 'dim')} {net.key} has no endpoint — it is the offline demo")
+        note(f"{net.key} has no endpoint — it is the offline demo")
     else:
         try:
             ch = open_chain(net.rpc, expect=None)
             live = ch.chain_id()
-            ok = live == net.chain_id
-            problems += 0 if ok else 1
-            print(f"  {p('✓' if ok else '✗', 'green' if ok else 'red')} {net.rpc}")
-            print(p(f"      reports chain {live}, expected {net.chain_id}", "mute"))
-            if ok:
-                print(p(f"      head block {ch.head():,}", "mute"))
+            good = live == net.chain_id
+            (ok if good else bad)(net.rpc, f"reports chain {live}, expected {net.chain_id}")
+            problems += 0 if good else 1
+            if good:
+                note(f"head block {ch.head():,}")
         except RpcError as e:
             problems += 1
-            print(f"  {p('✗', 'red')} {net.rpc}")
-            print(p(f"      {e}", "mute"))
-            print(p("      unreachable is not the same as wrong — index from a machine", "dim"))
-            print(p("      that can reach it and bring the result back with --record/--replay", "dim"))
+            bad(net.rpc, str(e)[:52])
+            note("unreachable is not the same as wrong — index where it answers,")
+            note("then bring the result back with --record / --replay")
 
-    head("quote assets")
+    # ── quote assets ──
+    rows.extend(["", ui.c("QUOTE ASSETS", "bright", bold=True)])
     if net.quotes:
         for addr, (sym, dec, rank) in net.quotes.items():
-            print(f"  {p('✓', 'green')} {sym:<8} {addr}  {dec} decimals  rank {rank}")
+            ok(f"{sym:<8} {addr}", f"{dec} decimals · rank {rank}")
     else:
-        print(f"  {p('!', 'gold')} none registered — every trade will be read and none priced")
-        print(p("      that is a safe default, not a bug. see docs/PNL.md", "mute"))
+        warn("none registered", "every trade is read, none is priced")
+        note("that is a safe default, not a bug — see docs/PNL.md")
 
-    head("ledger")
+    # ── ledger ──
+    rows.extend(["", ui.c("LEDGER", "bright", bold=True)])
     v = verify(home.ledger)
     if v.ok:
-        print(f"  {p('✓', 'green')} {v.lines} records, unbroken")
-        print(p(f"      head {v.head[:24]}…", "dim"))
+        ok(f"{v.lines:,} records, unbroken", v.head[:24] + "…" if v.lines else "")
     else:
         problems += 1
-        print(f"  {p('✗', 'red')} broken at record {v.broke_at}: {v.reason}")
+        bad(f"broken at record {v.broke_at}", str(v.reason)[:52])
 
-    head("capability")
+    # ── capability ──
     from . import rpc as rpcmod
-    print(f"  {p('✓', 'green')} {len(rpcmod.READ_METHODS)} rpc methods, all of them reads")
-    print(p("      no signing, no keys, no wallet — flyon cannot move anything", "mute"))
+
+    rows.extend(["", ui.c("CAPABILITY", "bright", bold=True)])
+    ok(f"{len(rpcmod.READ_METHODS)} rpc methods, all of them reads",
+       "no signing · no keys · no wallet")
+    note("flyon cannot move anything, and a test reads the file to prove it")
+
+    for line in ui.frame(rows, W, ink="line"):
+        print(line)
 
     print()
-    print(rule())
-    print(p(f"  {problems} things want you.", "gold") if problems
-          else p("  nothing is wrong.", "green bold"))
+    if problems:
+        print("  " + ui.c(f"⚑  {problems} thing{'s' if problems > 1 else ''} want you.", "gold"))
+    else:
+        print("  " + ui.c("✓  nothing is wrong.", "green", bold=True))
     return 0
 
 

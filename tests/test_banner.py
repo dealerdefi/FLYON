@@ -1,5 +1,5 @@
 """
-The mark.
+The mark, and the instrument it is part of.
 
 A banner is the first thing anybody sees and the last thing anybody tests, which
 is how projects end up with a splash screen that wraps into confetti on an
@@ -14,7 +14,7 @@ from __future__ import annotations
 import re
 import unittest
 
-from flyon import banner
+from flyon import banner, ui
 
 ANSI = re.compile(r"\033\[[0-9;]*m")
 
@@ -79,6 +79,45 @@ class Rendering(unittest.TestCase):
     def test_the_fly_comes_back_as_half_the_pixel_rows(self):
         grid = banner.FLY.strip("\n").split("\n")
         self.assertEqual(len(banner.fly_rows(colour=False)), len(grid) // 2)
+
+
+class TheInstrument(unittest.TestCase):
+    """The shared drawing code. A ragged frame is the tell of a fake dashboard."""
+
+    def test_a_bar_is_exactly_the_width_asked_for(self):
+        for value, scale in ((0, 1), (0.5, 1), (1, 1), (3, 1), (-1, 1), (1, 0)):
+            self.assertEqual(ui.visible(ui.bar(value, scale, 20)), 20, (value, scale))
+            self.assertEqual(ui.visible(ui.diverging(value, scale, 20)), 20, (value, scale))
+
+    def test_a_bar_is_drawn_to_the_scale_it_was_given(self):
+        half = ui.visible(ui.bar(5, 10, 16).rstrip())
+        full = ui.visible(ui.bar(10, 10, 16).rstrip())
+        self.assertLess(half, full)
+        self.assertEqual(full, 16)
+
+    def test_a_frame_is_square_however_much_colour_is_inside(self):
+        rows = ["plain", ui.c("coloured", "green"), ui.c("bold", "gold", bold=True) + " tail"]
+        for line in ui.frame(rows, 70):
+            self.assertEqual(ui.visible(line), 70, repr(line))
+
+    def test_columns_never_exceed_their_width(self):
+        spec = [(6, "<"), (10, ">"), (4, "^")]
+        for line in ui.columns([["a very long cell indeed", ui.c("12345", "green"), "x"]], spec):
+            self.assertEqual(ui.visible(line), 6 + 10 + 4 + 4)
+
+    def test_flex_leaves_room_for_the_frame(self):
+        w = 96
+        fixed = [3, 42, 2, 11, 8]
+        rest = ui.flex(ui.inner(w), fixed, gap=1)
+        self.assertLessEqual(sum(fixed) + rest + len(fixed), ui.inner(w) + 1)
+
+    def test_a_spark_is_one_character_per_value(self):
+        self.assertEqual(ui.visible(ui.spark([1, 2, 3, 4])), 4)
+        self.assertEqual(ui.spark([]), "")
+        self.assertEqual(ui.visible(ui.spark([7, 7, 7])), 3)
+
+    def test_the_record_strip_is_capped(self):
+        self.assertEqual(ui.visible(ui.strip([True] * 100, cap=12)), 12)
 
 
 if __name__ == "__main__":
